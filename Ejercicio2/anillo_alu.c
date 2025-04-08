@@ -11,25 +11,33 @@ int generate_random_number(){
 	return (rand() % 50);
 }
 
-int hijo(int id, int n, int numero_inicial, int proceso_inicial, int** pipe_ids, bool es_primera_llamda){
-	printf("soy hijo %d", id);
+int hijo(int id, int n, bool es_primer_hijo, int pipe_ids[][2]){
+	printf("soy hijo %d\n", id);
 	int received_num;
 	int numero_secreto;
-	if (proceso_inicial == id && es_primera_llamda) {
-		received_num = numero_inicial;
+	if (es_primer_hijo) {
 		numero_secreto = generate_random_number();
-	} else {
-		received_num = read(pipe_ids[(id - 1 + n) % n], received_num, sizeof(received_num));
-		printf("Proceso %d received numero %d", id, received_num);
+		printf("el primer proceso generó el numero secreto %d\n", numero_secreto);
 	}
-	// proceso inical esta llamado otra vez, pero no es la primera llamada
-	if (proceso_inicial == id && !es_primera_llamda) {
-		// exit(1);
+	bool es_primer_iteration = true;
+	while (true){
+		int pipe_id = (id - 1 + n) % n;
+		if (es_primer_hijo && es_primer_iteration){
+			pipe_id = n;
+			es_primer_iteration = false;
+		}
+		read(pipe_ids[pipe_id][PIPE_READ], &received_num, sizeof(received_num));
+		printf("Proceso %d received numero %d\n", id, received_num);
+		// proceso inical tiene que fijarse si el numero recibido ya es mas grande que el numero secreto
+		if (es_primer_hijo && (received_num > numero_secreto)) {
+			printf("terminando programa pq soy el primer hijo y el numeró %d es mas grande que mi numero secreto %d\n", received_num, numero_secreto);
+			// mandar ultimo numero al padre
+			write(pipe_ids[n + 1][PIPE_WRITE], &received_num, sizeof(received_num));
+			exit(1);
+		}
+		received_num++;
+		write(pipe_ids[(id + n) % n][PIPE_WRITE], &received_num, sizeof(received_num));
 	}
-	write(pipe_ids[(id + n) % n][PIPE_WRITE], (received_num + 1), sizeof(numero_inicial));
-	// reiniciar y esperar el proximo numero
-	// hijo(id, n, numero_inicial, proceso_inicial, pipe_ids, false);
-	exit(1);
 }
 
 int main(int argc, char **argv)
@@ -48,14 +56,31 @@ int main(int argc, char **argv)
     printf("Se crearán %i procesos, se enviará el caracter %i desde proceso %i \n", n, buffer, start);
 
 	// crear a n pipes
-	int** pipe_ids[n][2];
-	for(int i = 0; i < n; i ++){
+	
+	// Declare pipe_ids as a 2D array
+	int pipe_ids[n + 2][2];
+	// n + 1-th pipe se usa para mandar del padre al primer hijo
+	// n + 2-th pipe se usa para mandar del primer hijo al padre
+	for(int i = 0; i < n + 2; i ++){
 		pipe(pipe_ids[i]);
 	}
 
 	// crear a n hijos
+	int pid;
 	for (int process_id = 0; process_id < n; process_id ++){
-		int pid = fork();
-		if (pid == 0) hijo(process_id, n, buffer, start, pipe_ids, true);
+		pid = fork();
+		if (pid == 0){
+			hijo(process_id, n, (start == process_id) ,pipe_ids);
+			break;
+		}
+	}
+	if (pid != 0){
+		// proceso padre
+		// mandar primer mensaje al primer hijo
+		write(pipe_ids[n][PIPE_WRITE], &buffer, sizeof(buffer));
+		// esperar el numero final
+		int numero_final;
+		read(pipe_ids[n + 1][PIPE_READ], &numero_final, sizeof(numero_final));
+		printf("proceso padre termina y recibió el numero final de %d\n", numero_final);
 	}
 }
