@@ -50,6 +50,7 @@ void servidor(int client_socket) {
     int num = calcular(operacion);
     send(client_socket, &num, sizeof(num), 0);
   }
+  exit(0);
 }
 
 int main() {

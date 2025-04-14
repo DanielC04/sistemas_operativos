@@ -13,6 +13,12 @@ int hijo(int id, int n, bool es_primer_hijo, int pipe_ids[][2]) {
   printf("soy hijo %d\n", id);
   int received_num;
   int numero_secreto;
+
+  for (int i = 0; i < n; i++){
+	if (i == id) continue;
+	close(pipe_ids[i][PIPE_WRITE]);
+  }
+
   if (es_primer_hijo) {
     numero_secreto = generate_random_number();
     printf("el primer proceso generó el numero secreto %d\n", numero_secreto);
@@ -24,7 +30,7 @@ int hijo(int id, int n, bool es_primer_hijo, int pipe_ids[][2]) {
       pipe_id = n;
       es_primer_iteration = false;
     }
-    read(pipe_ids[pipe_id][PIPE_READ], &received_num, sizeof(received_num));
+    if(read(pipe_ids[pipe_id][PIPE_READ], &received_num, sizeof(received_num)) < sizeof(received_num)) exit(0);
     printf("Proceso %d received numero %d\n", id, received_num);
     // proceso inical tiene que fijarse si el numero recibido ya es mas grande
     // que el numero secreto
@@ -34,7 +40,7 @@ int hijo(int id, int n, bool es_primer_hijo, int pipe_ids[][2]) {
              received_num, numero_secreto);
       // mandar ultimo numero al padre
       write(pipe_ids[n + 1][PIPE_WRITE], &received_num, sizeof(received_num));
-      exit(1);
+      exit(0);
     }
     received_num++;
     write(pipe_ids[(id + n) % n][PIPE_WRITE], &received_num,
@@ -89,5 +95,14 @@ int main(int argc, char **argv) {
     read(pipe_ids[n + 1][PIPE_READ], &numero_final, sizeof(numero_final));
     printf("proceso padre termina y recibió el numero final de %d\n",
            numero_final);
+
+	for (int i = 0; i < n+2; i++){
+		close(pipe_ids[i][PIPE_READ]);
+		close(pipe_ids[i][PIPE_WRITE]);
+	}
+
+	for (int i = 0; i < n; i++) wait(NULL);
+
+	exit(0);
   }
 }

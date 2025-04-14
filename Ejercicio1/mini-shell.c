@@ -38,7 +38,8 @@ int hijo(int id, int pipes[][2], char ***progs, size_t count)
 
 
     execvp(progs[id][0], progs[id]);
-
+	
+	exit(1);
 }
 
 static int run(char ***progs, size_t count)
@@ -110,6 +111,3 @@ int main(int argc, char **argv)
 
 
 }
-
-
-
